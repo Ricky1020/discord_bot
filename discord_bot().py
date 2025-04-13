@@ -53,12 +53,12 @@ bot = commands.Bot(command_prefix='/', intents = intents)
 intents.members = True
 #透過bot與dicord連結，並設定command的前綴(但還不會用到)
 
-def youbike_search(form, keyword):
-  pd.options.mode.chained_assignment = None
-  original = pd.read_json('https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json')
+def youbike_search(form, keyword): #建立函式
+  pd.options.mode.chained_assignment = None #避免顯示錯誤訊息
+  original = pd.read_json('https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json') #引入資料
   rename = original.rename(columns = {'sno':'站點代號', 'sna':'場站中文名稱','total':'場站總停車格','available_rent_bikes':'場站目前車輛數量','sarea':'場站區域',
   'mday':'資料更新時間','latitude':'緯度','longitude':'經度','ar':'地點','sareaen':'場站區域英文','snaen':'場站名稱英文','aren':'地址英文','available_return_bikes':'空位數量',
-  'act':'全站禁用狀態'})
+  'act':'全站禁用狀態'}) #更改欄位名稱
 
   '''
   2024/5/9更新
@@ -70,32 +70,38 @@ def youbike_search(form, keyword):
 
   #'srcUpdateTime':'YouBike2.0系統發布資料更新的時間','updateTime':'大數據平台經過處理後將資料存入DB的時間','infoTime':'各場站來源資料更新時間'
   #'infoDate':'各場站來源資料更新時間'
-  df_bike = rename.drop(['場站區域英文','場站名稱英文','地址英文','infoDate','srcUpdateTime','updateTime','infoTime'], axis = 'columns')
-  df_bike = df_bike.rename(columns = {'場站區域':'場站區域1','地點':'地點1'})
-  df_bike['場站區域'] = '0'
+  df_bike = rename.drop(['場站區域英文','場站名稱英文','地址英文','infoDate','srcUpdateTime','updateTime','infoTime'], axis = 'columns') #將用不到的欄位刪除
+  df_bike = df_bike.rename(columns = {'場站區域':'場站區域1','地點':'地點1'}) #複製欄位前先更名，準備將區域、地點欄位移到後面
+  df_bike['場站區域'] = '0' 
   df_bike['地點'] = '0'
   for i in range(len(df_bike)):
-    df_bike.loc[i, '場站中文名稱'] = df_bike.loc[i, '場站中文名稱'].replace('YouBike2.0_','')
-    df_bike.loc[i, '場站區域'] = df_bike.loc[i, '場站區域1']
+    df_bike.loc[i, '場站中文名稱'] = df_bike.loc[i, '場站中文名稱'].replace('YouBike2.0_','') #將站點名稱簡化
+    df_bike.loc[i, '場站區域'] = df_bike.loc[i, '場站區域1'] #複製欄位
     df_bike.loc[i, '地點'] = df_bike.loc[i, '地點1']
-  bike = df_bike.drop(['站點代號','場站總停車格','資料更新時間','緯度','經度','全站禁用狀態','場站區域1','地點1'], axis = 'columns') #
+  bike = df_bike.drop(['站點代號','場站總停車格','資料更新時間','緯度','經度','全站禁用狀態','場站區域1','地點1'], axis = 'columns') #刪除欄位
   if form == '地點':
     name = keyword
-    if name == '建中' or name == '建國中學':
+    name1 = keyword
+    if name == '建中' or name == '建國中學': #特殊功能：查詢建中附近YouBike站點資料
         CK = ['泉州寧波西街口', '郵政博物館', '植物園', '南海和平路口西南側', '捷運中正紀念堂站(2號出口)', '捷運中正紀念堂站(3號出口)', 
-              '羅斯福寧波東街口', '立法院台北會館']
+              '羅斯福寧波東街口', '立法院台北會館'] #以建中同學平時常前往的站點篩選資料
         filter = bike['場站中文名稱'].isin(CK)
     else:
-        if '台' in name:
+        if '台' in name: #通同字轉換
             name = name.replace('台', '臺')
-        filter = bike['地點'].str.contains(name)
+        elif '臺' in name:
+            name = name.replace('臺', '台')
+        filter = bike['地點'].str.contains(f'{name1}|{name}') #篩選符合關鍵字的站點
   elif form == '無車':
-    filter = (bike['場站目前車輛數量'] == 0)
+    filter = (bike['場站目前車輛數量'] == 0) #篩選目前無空車的站點
   else:
     name = keyword
+    name1 = keyword
     if '台' in name:
       name = name.replace('台', '臺')
-    filter = bike['場站中文名稱'].str.contains(name)
+    elif '臺' in name:
+      name = name.replace('臺', '台')
+    filter = bike['場站中文名稱'].str.contains(f'{name1}|{name}')
   bike_result = bike[filter]
   return bike_result
 
